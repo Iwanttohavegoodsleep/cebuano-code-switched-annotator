@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Papa from "papaparse";
 import { AppHeader } from "@/components/app-header";
 import { demoRecentAnnotations } from "@/lib/demo-data";
 import { getAllAnnotations, getCurrentProfile, getProgress, getWorkflowStatus, saveAnnotation } from "@/lib/data";
@@ -23,6 +24,29 @@ export function LabelsWorkspace() {
   const [loading, setLoading] = useState(isSupabaseConfigured);
   const [error, setError] = useState("");
   const [annotationsLocked, setAnnotationsLocked] = useState(false);
+
+  function downloadMyLabels() {
+    const rows = [...items]
+      .sort((a, b) => (a.annotation_number ?? 0) - (b.annotation_number ?? 0))
+      .map((item) => ({
+        candidate_id: item.candidate_id,
+        review_text: item.review_text,
+        source_tier: item.source_tier,
+        label: item.label,
+        annotation_number: item.annotation_number ?? "",
+        updated_at: item.updated_at,
+      }));
+
+    const blob = new Blob(["\uFEFF", Papa.unparse(rows)], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `my-annotations-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -75,7 +99,10 @@ export function LabelsWorkspace() {
       <section className="labels-workspace">
         <div className="labels-page-heading">
           <div><span className="eyebrow">YOUR WORK</span><h1>My labels</h1><p>Review, search, and correct any label you submitted.</p></div>
-          <Link className="primary-button compact" href="/">Continue annotating</Link>
+          <div className="data-actions">
+            <button className="secondary-button compact" onClick={downloadMyLabels} disabled={!items.length}>Export my labels</button>
+            <Link className="primary-button compact" href="/">Continue annotating</Link>
+          </div>
         </div>
 
         <div className="labels-toolbar">
