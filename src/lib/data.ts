@@ -1,5 +1,26 @@
-import type { AdminOverview, AnnotationLabel, Disagreement, DiscussionMessage, DiscussionReview, Profile, Progress, RecentAnnotation, Review } from "@/lib/types";
+import type { AdminOverview, AnnotationLabel, Disagreement, DiscussionMessage, DiscussionReview, FinalDatasetRow, Profile, Progress, RecentAnnotation, Review, WorkflowStatus } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
+
+const rpcPageSize = 1000;
+
+type PagedResult<T> = {
+  data: T[] | null;
+  error: { message: string } | null;
+};
+
+async function collectRpcPages<T>(
+  fetchPage: (from: number, to: number) => PromiseLike<PagedResult<T>>,
+): Promise<T[]> {
+  const rows: T[] = [];
+
+  for (let from = 0; ; from += rpcPageSize) {
+    const { data, error } = await fetchPage(from, from + rpcPageSize - 1);
+    if (error) throw error;
+    const page = data ?? [];
+    rows.push(...page);
+    if (page.length < rpcPageSize) return rows;
+  }
+}
 
 export async function getCurrentProfile(): Promise<Profile | null> {
   const supabase = createClient();
@@ -50,9 +71,23 @@ export async function getRecentAnnotations(limit = 12): Promise<RecentAnnotation
 export async function getAllAnnotations(): Promise<RecentAnnotation[]> {
   const supabase = createClient();
   if (!supabase) return [];
-  const { data, error } = await supabase.rpc("all_annotations_for_current_user");
-  if (error) throw error;
-  return (data ?? []) as RecentAnnotation[];
+  return collectRpcPages<RecentAnnotation>((from, to) =>
+    supabase.rpc("all_annotations_for_current_user").range(from, to)
+  );
+}
+
+export async function getWorkflowStatus(): Promise<WorkflowStatus> {
+  const supabase = createClient();
+  if (!supabase) return { total_reviews: 3566, double_annotated: 3566, annotation_complete: true, annotations_locked: false };
+  const { data, error } = await supabase.rpc("annotation_workflow_status");
+  if (error) {
+    // Keep the current site usable until migration 007 is installed.
+    if (error.code === "PGRST202" || error.code === "42883") {
+      return { total_reviews: 0, double_annotated: 0, annotation_complete: false, annotations_locked: false };
+    }
+    throw error;
+  }
+  return data as WorkflowStatus;
 }
 
 export async function saveAnnotation(reviewId: number, label: AnnotationLabel) {
@@ -157,20 +192,20 @@ export async function importReviewBatch(rows: Array<{ candidate_id: string; revi
   }
 }
 
-export async function getFinalDataset() {
+export async function getFinalDataset(): Promise<FinalDatasetRow[]> {
   const supabase = createClient();
   if (!supabase) throw new Error("Supabase is not configured yet.");
-  const { data, error } = await supabase.rpc("export_final_dataset");
-  if (error) throw error;
-  return data ?? [];
+  return collectRpcPages<FinalDatasetRow>((from, to) =>
+    supabase.rpc("export_final_dataset").range(from, to)
+  );
 }
 
 export async function getDiscussionReviews(): Promise<DiscussionReview[]> {
   const supabase = createClient();
   if (!supabase) return [];
-  const { data, error } = await supabase.rpc("discussion_reviews_for_current_user");
-  if (error) throw error;
-  return (data ?? []) as DiscussionReview[];
+  return collectRpcPages<DiscussionReview>((from, to) =>
+    supabase.rpc("discussion_reviews_for_current_user").range(from, to)
+  );
 }
 
 export async function getDiscussionMessages(reviewId: number): Promise<DiscussionMessage[]> {

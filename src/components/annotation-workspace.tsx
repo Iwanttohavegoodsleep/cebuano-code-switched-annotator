@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
 import { AnnotationGuide } from "@/components/annotation-guide";
 import { demoRecentAnnotations, demoReviews } from "@/lib/demo-data";
-import { getCurrentProfile, getNextReview, getProgress, getRecentAnnotations, saveAnnotation, saveAnnotationAndGetNext, skipReviewAndGetNext, undoAnnotation } from "@/lib/data";
+import { getCurrentProfile, getNextReview, getProgress, getRecentAnnotations, getWorkflowStatus, saveAnnotation, saveAnnotationAndGetNext, skipReviewAndGetNext, undoAnnotation } from "@/lib/data";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { defaultAnnotationKeybinds, displayKey, isValidKeybinds, keybindLabels, keybindStorageKey, type AnnotationKeybinds } from "@/lib/keybinds";
 import type { AnnotationLabel, Profile, Progress, RecentAnnotation, Review } from "@/lib/types";
@@ -33,6 +33,7 @@ export function AnnotationWorkspace() {
   const [keybindError, setKeybindError] = useState("");
   const [loading, setLoading] = useState(isSupabaseConfigured);
   const [error, setError] = useState("");
+  const [annotationsLocked, setAnnotationsLocked] = useState(false);
   const busy = useRef(false);
 
   const loadRealWorkspace = useCallback(async () => {
@@ -51,15 +52,17 @@ export function AnnotationWorkspace() {
         router.replace("/admin");
         return;
       }
-      const [nextReview, currentProgress, recentAnnotations] = await Promise.all([
+      const [nextReview, currentProgress, recentAnnotations, workflow] = await Promise.all([
         getNextReview(),
         getProgress(),
         getRecentAnnotations(100),
+        getWorkflowStatus(),
       ]);
       setProfile(currentProfile);
       setReview(nextReview);
       setProgress(currentProgress);
       setRecent(recentAnnotations);
+      setAnnotationsLocked(workflow.annotations_locked);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not load the annotation queue.");
     } finally {
@@ -113,6 +116,10 @@ export function AnnotationWorkspace() {
 
   const complete = useCallback(async (label: AnnotationLabel) => {
     if (!review || busy.current) return;
+    if (annotationsLocked) {
+      setError("Primary labels are locked because adjudication has begun.");
+      return;
+    }
     busy.current = true;
     setError("");
     const previousProgress = progress;
@@ -131,7 +138,7 @@ export function AnnotationWorkspace() {
     } finally {
       busy.current = false;
     }
-  }, [loadNext, progress, putRecentFirst, review, showSaved]);
+  }, [annotationsLocked, loadNext, progress, putRecentFirst, review, showSaved]);
 
   const answerYes = useCallback(() => void complete("complaint"), [complete]);
   const answerNo = useCallback(() => void complete("not_complaint"), [complete]);
@@ -139,6 +146,10 @@ export function AnnotationWorkspace() {
 
   const editRecent = useCallback(async (label: AnnotationLabel) => {
     if (!selectedRecent || busy.current) return;
+    if (annotationsLocked) {
+      setError("Primary labels are locked because adjudication has begun.");
+      return;
+    }
     busy.current = true;
     setError("");
     try {
@@ -152,7 +163,7 @@ export function AnnotationWorkspace() {
     } finally {
       busy.current = false;
     }
-  }, [putRecentFirst, selectedRecent, showSaved]);
+  }, [annotationsLocked, putRecentFirst, selectedRecent, showSaved]);
 
   const skip = useCallback(async () => {
     if (!review || busy.current) return;
@@ -174,6 +185,10 @@ export function AnnotationWorkspace() {
   const undo = useCallback(async () => {
     const previous = history.at(-1);
     if (!previous || busy.current) return;
+    if (annotationsLocked) {
+      setError("Primary labels are locked because adjudication has begun.");
+      return;
+    }
     busy.current = true;
     try {
       await undoAnnotation(previous.review.id);
@@ -188,7 +203,7 @@ export function AnnotationWorkspace() {
     } finally {
       busy.current = false;
     }
-  }, [history, selectedRecent]);
+  }, [annotationsLocked, history, selectedRecent]);
 
   const openShortcutSettings = useCallback(() => {
     setKeybindDraft(keybinds);
@@ -256,6 +271,7 @@ export function AnnotationWorkspace() {
           </div>
 
           {error && <div className="error-banner" role="alert">{error}</div>}
+          {annotationsLocked && <div className="error-banner" role="status">Primary annotation is complete and locked while the third reviewer adjudicates disagreements. You can still view your labels and discussions.</div>}
 
           {review ? (
             <div className="labeling-canvas">
@@ -269,13 +285,13 @@ export function AnnotationWorkspace() {
                   <button className="text-button" onClick={() => setGuidelinesOpen(true)}>View guidelines</button>
                 </div>
                 <div className="answer-grid">
-                  <button className="answer-button answer-yes" onClick={answerYes}><kbd>{displayKey(keybinds.complaint)}</kbd><span><strong>Yes</strong><small>Complaint</small></span></button>
-                  <button className="answer-button answer-no" onClick={answerNo}><kbd>{displayKey(keybinds.notComplaint)}</kbd><span><strong>No</strong><small>Not a complaint</small></span></button>
-                  <button className="answer-button answer-language" onClick={answerWrongLanguage}><kbd>{displayKey(keybinds.wrongLanguage)}</kbd><span><strong>Not Cebuano-English</strong><small>Wrong language or not genuinely code-switched</small></span></button>
+                  <button className="answer-button answer-yes" onClick={answerYes} disabled={annotationsLocked}><kbd>{displayKey(keybinds.complaint)}</kbd><span><strong>Yes</strong><small>Complaint</small></span></button>
+                  <button className="answer-button answer-no" onClick={answerNo} disabled={annotationsLocked}><kbd>{displayKey(keybinds.notComplaint)}</kbd><span><strong>No</strong><small>Not a complaint</small></span></button>
+                  <button className="answer-button answer-language" onClick={answerWrongLanguage} disabled={annotationsLocked}><kbd>{displayKey(keybinds.wrongLanguage)}</kbd><span><strong>Not Cebuano-English</strong><small>Wrong language or not genuinely code-switched</small></span></button>
                 </div>
               </section>
               <footer className="action-row">
-                <button onClick={() => void undo()} disabled={!history.length}><kbd>{displayKey(keybinds.undo)}</kbd> Undo</button>
+                <button onClick={() => void undo()} disabled={!history.length || annotationsLocked}><kbd>{displayKey(keybinds.undo)}</kbd> Undo</button>
                 <button onClick={() => void skip()}><kbd>{displayKey(keybinds.skip)}</kbd> Skip</button>
                 <button className="history-toggle" onClick={() => setHistoryOpen(true)}><kbd>{displayKey(keybinds.history)}</kbd> History</button>
                 <button onClick={openShortcutSettings}>Shortcuts</button>
@@ -300,12 +316,16 @@ export function AnnotationWorkspace() {
               <button className="history-back" onClick={() => setSelectedRecent(null)}>← Back to recent labels</button>
               <p>{selectedRecent.review_text}</p>
               <span className={`label-chip ${selectedRecent.label}`}>{labelName(selectedRecent.label)}</span>
-              <div className="history-edit-buttons" aria-label="Change this label">
-                <p>Change label</p>
-                <button className={selectedRecent.label === "complaint" ? "is-selected" : ""} onClick={() => void editRecent("complaint")}>Yes · Complaint</button>
-                <button className={selectedRecent.label === "not_complaint" ? "is-selected" : ""} onClick={() => void editRecent("not_complaint")}>No · Not complaint</button>
-                <button className={selectedRecent.label === "not_cebuano_english" ? "is-selected" : ""} onClick={() => void editRecent("not_cebuano_english")}>Not Cebuano-English</button>
-              </div>
+              {annotationsLocked ? (
+                <p className="modal-note">This label is read-only because adjudication has begun.</p>
+              ) : (
+                <div className="history-edit-buttons" aria-label="Change this label">
+                  <p>Change label</p>
+                  <button className={selectedRecent.label === "complaint" ? "is-selected" : ""} onClick={() => void editRecent("complaint")}>Yes · Complaint</button>
+                  <button className={selectedRecent.label === "not_complaint" ? "is-selected" : ""} onClick={() => void editRecent("not_complaint")}>No · Not complaint</button>
+                  <button className={selectedRecent.label === "not_cebuano_english" ? "is-selected" : ""} onClick={() => void editRecent("not_cebuano_english")}>Not Cebuano-English</button>
+                </div>
+              )}
             </div>
           ) : recent.length ? (
             <ol className="history-list">
@@ -318,7 +338,7 @@ export function AnnotationWorkspace() {
                     <span className="history-item-content">
                       <span className={`label-chip ${item.label}`}>{labelName(item.label)}</span>
                       <span className="history-review-text">{item.review_text}</span>
-                      <small>Click to check or change</small>
+                      <small>{annotationsLocked ? "Click to check" : "Click to check or change"}</small>
                     </span>
                   </button>
                 </li>

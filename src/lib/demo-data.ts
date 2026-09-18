@@ -9,9 +9,9 @@ export const demoReviews: Review[] = [
 ];
 
 export const demoRecentAnnotations: RecentAnnotation[] = [
-  { ...demoReviews[4], label: "not_complaint", updated_at: new Date().toISOString() },
-  { ...demoReviews[3], label: "not_cebuano_english", updated_at: new Date(Date.now() - 60_000).toISOString() },
-  { ...demoReviews[2], label: "complaint", updated_at: new Date(Date.now() - 120_000).toISOString() },
+  { ...demoReviews[4], label: "not_complaint", updated_at: "2026-09-18T14:07:00.000Z" },
+  { ...demoReviews[3], label: "not_cebuano_english", updated_at: "2026-09-18T14:06:00.000Z" },
+  { ...demoReviews[2], label: "complaint", updated_at: "2026-09-18T14:05:00.000Z" },
 ];
 
 export const demoDisagreements: Disagreement[] = [

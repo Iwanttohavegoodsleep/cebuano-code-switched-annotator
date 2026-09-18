@@ -21,6 +21,13 @@ export type Progress = {
   skipped: number;
 };
 
+export type WorkflowStatus = {
+  total_reviews: number;
+  double_annotated: number;
+  annotation_complete: boolean;
+  annotations_locked: boolean;
+};
+
 export type RecentAnnotation = Review & {
   label: AnnotationLabel;
   updated_at: string;
@@ -62,4 +69,20 @@ export type AdminOverview = {
   annotation_kappa: number | null;
   annotation_agreement_percent: number | null;
   annotators: AnnotatorProgress[];
+};
+
+export type FinalDatasetRow = {
+  candidate_id: string;
+  review_text: string;
+  source_tier: string;
+  source_order: number;
+  annotation_status: "incomplete" | "agreed" | "needs_adjudication" | "adjudicated";
+  annotator_1_id: string | null;
+  annotator_1_label: AnnotationLabel | null;
+  annotator_2_id: string | null;
+  annotator_2_label: AnnotationLabel | null;
+  adjudicator_id: string | null;
+  final_label: AnnotationLabel | null;
+  included_in_binary_dataset: boolean | null;
+  binary_complaint_label: 0 | 1 | null;
 };

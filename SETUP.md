@@ -10,7 +10,10 @@ This setup uses the free plans of Supabase and Vercel. Do not upload the candida
 4. Then open `supabase/migrations/002_three_label_annotation.sql`, copy the whole file, and run it. This adds the final three-label workflow and the single nominal Cohen's kappa.
 5. Run `supabase/migrations/003_recent_annotation_history.sql`. This enables the private recent-labels panel for each annotator.
 6. Run `supabase/migrations/004_full_annotation_history.sql`. This enables the complete **My labels** page and stable review numbering.
-7. Open **Authentication → Users** and create four users:
+7. Run `supabase/migrations/005_fast_annotation_flow.sql`. This makes label and skip actions transactional and faster.
+8. Run `supabase/migrations/006_review_discussions.sql`. This enables the private discussion workspace after both primary labels exist.
+9. Run `supabase/migrations/007_data_integrity_and_complete_exports.sql`. This stabilizes annotator identities in Cohen's kappa, locks primary labels after adjudication begins, and makes the final export auditable.
+10. Open **Authentication → Users** and create four users:
    - Annotator 1
    - Annotator 2
    - Adjudicator
@@ -80,9 +83,10 @@ The importer reads the existing `candidate_id`, `text`, `confidence_tier`, and `
 - Give each person only their own login.
 - The two annotators cannot see each other's labels or agreement statistics.
 - The annotators choose Complaint, Not complaint, or Not Cebuano-English.
-- The adjudicator sees a review only after both annotators choose different labels.
+- The adjudicator queue opens only after both annotators finish the entire fixed candidate set.
+- As soon as the first adjudication is saved, both original label sets become read-only.
 - Skips are private and do not enter the adjudication queue.
-- Use the Admin account to monitor progress, view the single three-label Cohen's kappa, and export the final CSV.
+- Use the Admin account to monitor progress, view the single three-label Cohen's kappa, and export the complete final CSV. The website verifies that all active reviews are present before downloading it.
 - Rows finalized as Not Cebuano-English remain in the audit export but are marked as excluded from the binary model dataset.
 
 ## Keyboard shortcuts

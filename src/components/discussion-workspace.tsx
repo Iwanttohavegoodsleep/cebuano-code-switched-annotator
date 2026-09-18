@@ -18,11 +18,11 @@ const demoReviews: DiscussionReview[] = [{
   annotator_1_label: "complaint",
   annotator_2_label: "not_complaint",
   message_count: 2,
-  last_message_at: new Date().toISOString(),
+  last_message_at: "2026-09-18T14:06:00.000Z",
 }];
 const demoMessages: DiscussionMessage[] = [
-  { id: 1, review_id: 8, author_id: "demo", author_name: "Annotator 1", author_role: "annotator", message: "I counted the missing item as a complaint even though the food was praised.", created_at: new Date(Date.now() - 120_000).toISOString() },
-  { id: 2, review_id: 8, author_id: "demo-2", author_name: "Annotator 2", author_role: "annotator", message: "Agreed. The one-problem rule applies here.", created_at: new Date(Date.now() - 60_000).toISOString() },
+  { id: 1, review_id: 8, author_id: "demo", author_name: "Annotator 1", author_role: "annotator", message: "I counted the missing item as a complaint even though the food was praised.", created_at: "2026-09-18T14:05:00.000Z" },
+  { id: 2, review_id: 8, author_id: "demo-2", author_name: "Annotator 2", author_role: "annotator", message: "Agreed. The one-problem rule applies here.", created_at: "2026-09-18T14:06:00.000Z" },
 ];
 
 export function DiscussionWorkspace() {
@@ -236,7 +236,7 @@ function discussionFilterName(filter: DiscussionFilter) {
 }
 
 function formatMessageTime(value: string) {
-  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+  return new Intl.DateTimeFormat("en-PH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Manila" }).format(new Date(value));
 }
 
 function selectMeetingReviews(reviews: DiscussionReview[]) {

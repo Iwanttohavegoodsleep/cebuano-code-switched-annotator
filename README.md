@@ -8,7 +8,7 @@ an undergraduate complaint-detection study.
 
 - Independent labeling by two annotators
 - Three mutually exclusive labels: Complaint, Not complaint, and Not Cebuano-English
-- Private annotation queues and editable label history
+- Private annotation queues and editable label history before adjudication
 - Customizable keyboard shortcuts for faster annotation
 - Discussion workspace for difficult examples
 - Disagreement-only adjudication by a third reviewer
@@ -20,9 +20,9 @@ an undergraduate complaint-detection study.
 
 1. An administrator imports candidate reviews.
 2. Two annotators label each review independently.
-3. Reviews with conflicting labels enter the adjudication queue.
-4. An adjudicator assigns the final label.
-5. The administrator exports the completed audit dataset.
+3. After both annotators finish the fixed candidate set, reviews with conflicting labels enter the adjudication queue.
+4. When adjudication begins, the two original label sets are locked and an adjudicator assigns the final labels.
+5. The administrator exports the complete audit dataset, including both original labels and adjudication metadata.
 
 ## Technology
 

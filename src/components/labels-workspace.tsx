@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AppHeader } from "@/components/app-header";
 import { demoRecentAnnotations } from "@/lib/demo-data";
-import { getAllAnnotations, getCurrentProfile, getProgress, saveAnnotation } from "@/lib/data";
+import { getAllAnnotations, getCurrentProfile, getProgress, getWorkflowStatus, saveAnnotation } from "@/lib/data";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 import type { AnnotationLabel, Profile, RecentAnnotation } from "@/lib/types";
 
@@ -22,6 +22,7 @@ export function LabelsWorkspace() {
   const [editing, setEditing] = useState<number | null>(null);
   const [loading, setLoading] = useState(isSupabaseConfigured);
   const [error, setError] = useState("");
+  const [annotationsLocked, setAnnotationsLocked] = useState(false);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -30,10 +31,11 @@ export function LabelsWorkspace() {
         const currentProfile = await getCurrentProfile();
         if (!currentProfile) return router.replace("/login");
         if (currentProfile.role !== "annotator") return router.replace(currentProfile.role === "admin" ? "/admin" : "/adjudicate");
-        const [history, progress] = await Promise.all([getAllAnnotations(), getProgress()]);
+        const [history, progress, workflow] = await Promise.all([getAllAnnotations(), getProgress(), getWorkflowStatus()]);
         setProfile(currentProfile);
         setItems(history);
         setCompleted(progress.completed);
+        setAnnotationsLocked(workflow.annotations_locked);
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "Could not load your labels.");
       } finally {
@@ -51,6 +53,10 @@ export function LabelsWorkspace() {
   }, [filter, items, query]);
 
   async function changeLabel(item: RecentAnnotation, label: AnnotationLabel) {
+    if (annotationsLocked) {
+      setError("Primary labels are locked because adjudication has begun.");
+      return;
+    }
     setError("");
     try {
       await saveAnnotation(item.id, label);
@@ -82,6 +88,7 @@ export function LabelsWorkspace() {
         </div>
 
         {error && <div className="error-banner" role="alert">{error}</div>}
+        {annotationsLocked && <div className="error-banner" role="status">Primary annotation is complete and locked while the third reviewer adjudicates disagreements. All labels remain available to view.</div>}
         <div className="labels-summary"><strong>{visible.length.toLocaleString()}</strong> shown <span>·</span> {completed.toLocaleString()} total labels</div>
 
         <ol className="all-labels-list">
@@ -97,10 +104,10 @@ export function LabelsWorkspace() {
                     {item.discussion_ready
                       ? <Link href={`/discussions?review=${item.id}`}>Discuss</Link>
                       : <span title="Discussion opens after both primary annotators label this review.">Waiting for partner</span>}
-                    <button onClick={() => setEditing(editing === item.id ? null : item.id)}>{editing === item.id ? "Cancel" : "Change label"}</button>
+                    {!annotationsLocked && <button onClick={() => setEditing(editing === item.id ? null : item.id)}>{editing === item.id ? "Cancel" : "Change label"}</button>}
                   </div>
                 </div>
-                {editing === item.id && (
+                {!annotationsLocked && editing === item.id && (
                   <div className="inline-label-editor">
                     <button onClick={() => void changeLabel(item, "complaint")}>Yes · Complaint</button>
                     <button onClick={() => void changeLabel(item, "not_complaint")}>No · Not complaint</button>
