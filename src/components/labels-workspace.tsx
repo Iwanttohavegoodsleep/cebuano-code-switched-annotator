@@ -34,7 +34,6 @@ export function LabelsWorkspace() {
         source_tier: item.source_tier,
         label: item.label,
         annotation_number: item.annotation_number ?? "",
-        updated_at: item.updated_at,
       }));
 
     const blob = new Blob(["\uFEFF", Papa.unparse(rows)], { type: "text/csv;charset=utf-8" });

@@ -37,6 +37,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Private researcher exports
+/exports/
+
 # Local AI-assistant context (not part of the application)
 AGENTS.md
 CLAUDE.md
